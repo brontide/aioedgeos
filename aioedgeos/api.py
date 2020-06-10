@@ -74,7 +74,6 @@ class EdgeOS:
     async def login(self, interval=120):
         async with self.session.post(self.url, data={'username':self.username, 'password': self.password},ssl=self.ssl) as resp:
             try:
-                print("good login")
                 s_id = self.session.cookie_jar.filter_cookies(self.url)['PHPSESSID'].value
                 token = self.session.cookie_jar.filter_cookies(self.url)['X-CSRF-TOKEN'].value
                 self.headers = { 'X-CSRF-TOKEN': token }
