@@ -1,5 +1,5 @@
 aiodns==2.0.0
-aioedgeos @ git+https://github.com/brontide/aioedgeos@9a3ce392facef04e9d84d000b23cdd07677843e8
+aioedgeos @ git+https://github.com/brontide/aioedgeos
 aiohttp==3.6.2
 aioinflux==0.9.0
 async-timeout==3.0.1

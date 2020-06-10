@@ -245,8 +245,14 @@ async def main_loop():
                 except:
                     raise
         except aiohttp.client_exceptions.ServerFingerprintMismatch as e:
-            fphash = b2a_hex(e.got)
-            print(f"Server replied with different fingerprint hash of {fphash}, if this is expected please update config")
+            fphash = b2a_hex(e.got).decode()
+            print(f'''
+===============   TLS/SSL HASH MISMATCH ===============
+Server replied with different fingerprint hash of {fphash}, it's likely you didn't setup the 
+ssl for your router.  If this is the case please update your environment with the following.
+
+ROUTER_SSL={fphash}
+===============   TLS/SSL HASH MISMATCH ===============''')
         
 
 print(f'''
