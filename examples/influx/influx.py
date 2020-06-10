@@ -48,6 +48,7 @@ from aioedgeos import *
 from time import time
 import asyncio
 from pprint import pprint
+from contextlib import AsyncExitStack
 
 from aioinflux import *
 from typing import NamedTuple
@@ -198,25 +199,31 @@ async def latency_loop(client,router):
         print(e)
 
 async def main_loop():
-    try:
-        async with EdgeOS(ROUTER_USERNAME,
-                            ROUTER_PASSWORD,
-                            ROUTER_URL,
-                            ssl=ssl_check) as router, InfluxDBClient(INFLUX_HOST, INFLUX_PORT, database=INFLUX_DB, **influx_auth) as client:
-
+    async with AsyncExitStack() as stack:
+        try:
+            ''' ROUTER SETUP '''
+            print(f"CONNECTING TO ROUTER {ROUTER_URL} with user {ROUTER_USERNAME}")
+            router = await stack.enter_async_context(
+                   EdgeOS(ROUTER_USERNAME, ROUTER_PASSWORD, ROUTER_URL, ssl=ssl_check))
             await router.config()
             hostname = router.sysconfig['system']['host-name']
-            print(f"Using router - {hostname}")
-
             config_extract_map(router.sysconfig)
             await router.dhcp_leases()
             leases_extract(router.sysdata['dhcp_leases'])
-            asyncio.create_task(dhcp_refresh_loop(router))
-
+            print(f"CONNECTED TO ROUTER {hostname}")
+            ''' INFLUX SETUP '''
+            print(f"CONNECTING TO INFLUX {INFLUX_HOST}:{INFLUX_PORT}/{INFLUX_DB}")
+            client = await stack.enter_async_context(
+                    InfluxDBClient(INFLUX_HOST, INFLUX_PORT, database=INFLUX_DB, **influx_auth))
             await client.create_database(INFLUX_DB)
+            print(f"CONNECTED TO INFLUX")
 
+            print("LAUNCHING DHCP SCRAPER")
+            asyncio.create_task(dhcp_refresh_loop(router))
+            print("LAUNCHING LATENCY CHECK LOOP")
             ping = asyncio.create_task(latency_loop(client,router))
 
+            print("STARTING MAIN WEBSOCKET LOOP")
             async for payload in router.stats():
                 try:
                     for key, value in payload.items():
@@ -237,9 +244,10 @@ async def main_loop():
                             #print(f"got {key} - ignoring for now")
                 except:
                     raise
-    except aiohttp.client_exceptions.ServerFingerprintMismatch as e:
-        fphash = b2a_hex(e.got)
-        print(f"Server replied with different fingerprint hash of {fphash}, if this is expected please update config")
+        except aiohttp.client_exceptions.ServerFingerprintMismatch as e:
+            fphash = b2a_hex(e.got)
+            print(f"Server replied with different fingerprint hash of {fphash}, if this is expected please update config")
+        
 
 print(f'''
 ================================================
