@@ -1,6 +1,5 @@
 import asyncio
 from aiohttp import ClientSession,CookieJar,Fingerprint,ClientTimeout
-#from secret import *
 
 from binascii import a2b_hex
 from urllib.parse import urlparse
