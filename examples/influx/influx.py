@@ -227,6 +227,9 @@ async def main_loop():
             async for payload in router.stats():
                 try:
                     for key, value in payload.items():
+                        if not isinstance(value, dict):
+                            print(f"{value} for {key} isn't a dict, would likely cause trouble in processing skipping")
+                            continue
                         if key == 'system-stats':
                             datapoint = SystemStats( router=hostname,
                                                         **value )
