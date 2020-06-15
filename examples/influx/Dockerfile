@@ -6,4 +6,4 @@ COPY . .
 RUN pip install -r /app/requirements.txt \
  && chmod 755 influx.py
 
-CMD ["python3", "/app/influx.py"]
+CMD ["python3", "-u", "/app/influx.py"]
