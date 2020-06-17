@@ -157,7 +157,7 @@ class EdgeOS:
                     return None
             return result
         except Exception as e:
-            logging.debug(f"exception in data {e}")
+            logging.debug(f"exception in data {e!r}")
             return None
 
     async def data_every(self, data_type, interval):
