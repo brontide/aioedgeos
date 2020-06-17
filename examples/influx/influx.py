@@ -191,7 +191,8 @@ class Latency(NamedTuple):
     latency: FLOAT
     lost: INT
 
-async def latency_loop(client,router, target, count, size):
+async def latency_loop(client,router, target, count, size, offset=0):
+    await asyncio.sleep(offset)
     hostname = router.sysconfig['system']['host-name']
     try:
         while True:
@@ -228,8 +229,16 @@ async def main_loop():
 
             logging.info("LAUNCHING DHCP SCRAPER")
             asyncio.create_task(dhcp_refresh_loop(router))
-            logging.info("LAUNCHING LATENCY CHECK LOOP")
-            ping = asyncio.create_task(latency_loop(client,router, PING_TARGET, PING_COUNT, PING_SIZE))
+            '''
+            For ping testing, let's breakdown the list into targets and make sure that
+            we don't start pinging all of them at once by staggering them based on their
+            position in the list
+            '''
+            targets = PING_TARGET.split('/')
+            for i, target in enumerate(targets):
+                offset = (i)*int(PING_INTERVAL/len(targets))
+                logging.info(f"LAUNCHING LATENCY CHECK LOOP FOR {target} with offset {offset}")
+                ping = asyncio.create_task(latency_loop(client,router, target, PING_COUNT, PING_SIZE, offset=offset))
 
             logging.info("STARTING MAIN WEBSOCKET LOOP")
             async for payload in router.stats():
