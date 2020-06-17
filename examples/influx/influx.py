@@ -53,6 +53,9 @@ from contextlib import AsyncExitStack
 from aioinflux import *
 from typing import NamedTuple
 
+import logging
+logging.basicConfig(format='%(asctime)s:%(levelname)s:%(name)s:%(message)s', level=logging.DEBUG)
+
 @lineprotocol
 class SystemStats(NamedTuple):
     router: TAG
@@ -184,14 +187,19 @@ async def dhcp_refresh_loop(router):
 @lineprotocol
 class Latency(NamedTuple):
     router: TAG
+    target: TAG
     latency: FLOAT
+    lost: INT
 
-async def latency_loop(client,router):
+async def latency_loop(client,router, target, count, size):
     hostname = router.sysconfig['system']['host-name']
     try:
         while True:
-            await router.ping(target=PING_TARGET, count=PING_COUNT, size=PING_SIZE)
-            await client.write(Latency(router=hostname, latency=router.sysdata['ping-data']['avg']))
+            await router.ping(target=target, count=count, size=size)
+            await client.write(Latency(router=hostname,
+                                target=target,
+                                latency=router.sysdata['ping-data'][target].get('avg', None),
+                                lost=router.sysdata['ping-data'][target].get('lost', None)))
             await asyncio.sleep(PING_INTERVAL)
     except asyncio.CancelledError:
         pass
@@ -202,7 +210,7 @@ async def main_loop():
     async with AsyncExitStack() as stack:
         try:
             ''' ROUTER SETUP '''
-            print(f"CONNECTING TO ROUTER {ROUTER_URL} with user {ROUTER_USERNAME}")
+            logging.info(f"CONNECTING TO ROUTER {ROUTER_URL} with user {ROUTER_USERNAME}")
             router = await stack.enter_async_context(
                    EdgeOS(ROUTER_USERNAME, ROUTER_PASSWORD, ROUTER_URL, ssl=ssl_check))
             await router.config()
@@ -210,25 +218,25 @@ async def main_loop():
             config_extract_map(router.sysconfig)
             await router.dhcp_leases()
             leases_extract(router.sysdata['dhcp_leases'])
-            print(f"CONNECTED TO ROUTER {hostname}")
+            logging.info(f"CONNECTED TO ROUTER {hostname}")
             ''' INFLUX SETUP '''
-            print(f"CONNECTING TO INFLUX {INFLUX_HOST}:{INFLUX_PORT}/{INFLUX_DB}")
+            logging.info(f"CONNECTING TO INFLUX {INFLUX_HOST}:{INFLUX_PORT}/{INFLUX_DB}")
             client = await stack.enter_async_context(
                     InfluxDBClient(INFLUX_HOST, INFLUX_PORT, database=INFLUX_DB, **influx_auth))
             await client.create_database(INFLUX_DB)
-            print(f"CONNECTED TO INFLUX")
+            logging.info(f"CONNECTED TO INFLUX")
 
-            print("LAUNCHING DHCP SCRAPER")
+            logging.info("LAUNCHING DHCP SCRAPER")
             asyncio.create_task(dhcp_refresh_loop(router))
-            print("LAUNCHING LATENCY CHECK LOOP")
-            ping = asyncio.create_task(latency_loop(client,router))
+            logging.info("LAUNCHING LATENCY CHECK LOOP")
+            ping = asyncio.create_task(latency_loop(client,router, PING_TARGET, PING_COUNT, PING_SIZE))
 
-            print("STARTING MAIN WEBSOCKET LOOP")
+            logging.info("STARTING MAIN WEBSOCKET LOOP")
             async for payload in router.stats():
                 try:
                     for key, value in payload.items():
                         if not isinstance(value, dict):
-                            print(f"{value} for {key} isn't a dict, would likely cause trouble in processing skipping")
+                            logging.warning(f"{value} for {key} isn't a dict, would likely cause trouble in processing skipping")
                             continue
                         if key == 'system-stats':
                             datapoint = SystemStats( router=hostname,
@@ -275,7 +283,6 @@ PING_COUNT      = {PING_COUNT}
 PING_SIZE       = {PING_SIZE}
 PING_INTERVAL   = {PING_INTERVAL}
 ================================================
-Starting main loop
 ''')
 
 asyncio.run(main_loop())
