@@ -190,7 +190,7 @@ async def latency_check(client, edgeos, hostname, target, count, size):
     await edgeos.ping(target=target, count=count, size=size)
     await client.write(Latency(router=hostname,
                        target=target,
-                       latency=edgeos.sysdata['ping-data'][target].get('avg', None),
+                       latency=edgeos.sysdata['ping-data'][target].get('avg', '1000'),
                        lost=edgeos.sysdata['ping-data'][target].get('lost', None)))
 
 async def main_loop():
