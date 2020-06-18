@@ -1,1 +1,1 @@
-from .api import EdgeOS, find_subkey
+from .api import EdgeOS, find_subkey, TaskEvery

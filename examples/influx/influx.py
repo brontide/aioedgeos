@@ -175,14 +175,9 @@ def process_users(value, hostname):
         yield Users(router=hostname, user_type=user_type, count=len(value))
 
 
-async def dhcp_refresh_loop(router):
-    try:
-        while True:
-            await router.dhcp_leases()
-            leases_extract(router.sysdata['dhcp_leases'])
-            await asyncio.sleep(600)
-    except asyncio.CancelledError:
-        pass
+async def dhcp_refresh(router):
+    await router.dhcp_leases()
+    leases_extract(router.sysdata['dhcp_leases'])
 
 @lineprotocol
 class Latency(NamedTuple):
@@ -191,21 +186,12 @@ class Latency(NamedTuple):
     latency: FLOAT
     lost: INT
 
-async def latency_loop(client,router, target, count, size, offset=0):
-    await asyncio.sleep(offset)
-    hostname = router.sysconfig['system']['host-name']
-    try:
-        while True:
-            await router.ping(target=target, count=count, size=size)
-            await client.write(Latency(router=hostname,
-                                target=target,
-                                latency=router.sysdata['ping-data'][target].get('avg', None),
-                                lost=router.sysdata['ping-data'][target].get('lost', None)))
-            await asyncio.sleep(PING_INTERVAL)
-    except asyncio.CancelledError:
-        pass
-    except Exception as e:
-        print(e)
+async def latency_check(client, edgeos, hostname, target, count, size):
+    await edgeos.ping(target=target, count=count, size=size)
+    await client.write(Latency(router=hostname,
+                       target=target,
+                       latency=edgeos.sysdata['ping-data'][target].get('avg', None),
+                       lost=edgeos.sysdata['ping-data'][target].get('lost', None)))
 
 async def main_loop():
     async with AsyncExitStack() as stack:
@@ -228,7 +214,7 @@ async def main_loop():
             logging.info(f"CONNECTED TO INFLUX")
 
             logging.info("LAUNCHING DHCP SCRAPER")
-            asyncio.create_task(dhcp_refresh_loop(router))
+            await stack.enter_async_context(TaskEvery(dhcp_refresh,router,interval=600))
             '''
             For ping testing, let's breakdown the list into targets and make sure that
             we don't start pinging all of them at once by staggering them based on their
@@ -238,7 +224,15 @@ async def main_loop():
             for i, target in enumerate(targets):
                 offset = (i)*int(PING_INTERVAL/len(targets))
                 logging.info(f"LAUNCHING LATENCY CHECK LOOP FOR {target} with offset {offset}")
-                ping = asyncio.create_task(latency_loop(client,router, target, PING_COUNT, PING_SIZE, offset=offset))
+                await stack.enter_async_context(TaskEvery(latency_check,
+                                                    client, 
+                                                    router, 
+                                                    hostname,
+                                                    target, 
+                                                    PING_COUNT, 
+                                                    PING_SIZE,
+                                                    interval=PING_INTERVAL,
+                                                    offset=offset))
 
             logging.info("STARTING MAIN WEBSOCKET LOOP")
             async for payload in router.stats():
