@@ -314,7 +314,7 @@ class EdgeOS:
                         break
                     logger.warning("Session died, trying a manual login.")
                     await asyncio.sleep(5)
-                    await self.login(interval=0)
+                    await self.login()
 
                 async with AsyncExitStack() as stack:
 
