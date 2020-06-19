@@ -9,21 +9,49 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 
+'''
+If you want to replace the system hostname with something
+else and don't want to change the router config you can
+change it here
+'''
+ROUTER_TAGNAME  = os.environ.get('ROUTER_TAGNAME',None)
+
+''' Credentials to get into the webUI '''
 ROUTER_USERNAME = os.environ['ROUTER_USERNAME']
 ROUTER_PASSWORD = os.environ['ROUTER_PASSWORD']
 ROUTER_URL      = os.environ['ROUTER_URL']
+
+''' 
+TRUE for SSL that will validate or the base64 sha256
+fingerprint for the host
+'''
 ROUTER_SSL      = os.environ.get('ROUTER_SSL', 'f'*64).lower() # Default to enforcing ssl
+
+''' InfluxDB settings '''
 INFLUX_HOST     = os.environ['INFLUX_HOST']
-INFLUX_PORT     = os.environ.get('INFLUX_PORT', 8086)
 INFLUX_DB       = os.environ['INFLUX_DB']
+''' optional influx settings '''
+INFLUX_PORT     = os.environ.get('INFLUX_PORT', 8086)
 INFLUX_USERNAME = os.environ.get('INFLUX_USERNAME',None)
 INFLUX_PASSWORD = os.environ.get('INFLUX_PASSWORD',None)
+
+''' 
+Latency settings - optional, by default will 
+ping 1.1.1.1 every 120 seconds with 3 pings and record
+the stats.
+
+PING_TARGET can take multiple hosts like 1.1.1.1/8.8.8.8
+and will interleve checks
+'''
 PING_TARGET     = os.environ.get('PING_TARGET', '1.1.1.1')
 PING_COUNT      = int(os.environ.get('PING_COUNT', 3))
 PING_SIZE       = int(os.environ.get('PING_SIZE', 50))
 PING_INTERVAL   = int(os.environ.get('PING_INTERVAL', 120))
 
+import warnings
+warnings.simplefilter("ignore")
 import aiohttp
+
 from binascii import a2b_hex, b2a_hex
 
 ssl_check = True
@@ -201,20 +229,29 @@ async def main_loop():
             router = await stack.enter_async_context(
                    EdgeOS(ROUTER_USERNAME, ROUTER_PASSWORD, ROUTER_URL, ssl=ssl_check))
             await router.config()
-            hostname = router.sysconfig['system']['host-name']
             config_extract_map(router.sysconfig)
-            await router.dhcp_leases()
-            leases_extract(router.sysdata['dhcp_leases'])
+
+            hostname = ROUTER_TAGNAME or router.sysconfig['system']['host-name']
+
+            ''' Sanity check host '''
+            try:
+                if router.sysconfig['system']['traffic-analysis']['dpi'] == 'enable' and \
+                   router.sysconfig['system']['traffic-analysis']['export'] == 'enable':
+                       logging.debug(f"{hostname} appears to have DPI enabled")
+            except:
+                logging.warning(f"{hostname} DOES NOT APPEAR TO HAVE DPI ENABLED, FUNCTIONALITY WILL BE LIMITED")
+                       
             logging.info(f"CONNECTED TO ROUTER {hostname}")
+
+            logging.info("LAUNCHING DHCP SCRAPER")
+            await stack.enter_async_context(TaskEvery(dhcp_refresh,router,interval=600))
+            
             ''' INFLUX SETUP '''
             logging.info(f"CONNECTING TO INFLUX {INFLUX_HOST}:{INFLUX_PORT}/{INFLUX_DB}")
             client = await stack.enter_async_context(
                     InfluxDBClient(INFLUX_HOST, INFLUX_PORT, database=INFLUX_DB, **influx_auth))
             await client.create_database(INFLUX_DB)
             logging.info(f"CONNECTED TO INFLUX")
-
-            logging.info("LAUNCHING DHCP SCRAPER")
-            await stack.enter_async_context(TaskEvery(dhcp_refresh,router,interval=600))
             '''
             For ping testing, let's breakdown the list into targets and make sure that
             we don't start pinging all of them at once by staggering them based on their
@@ -222,7 +259,7 @@ async def main_loop():
             '''
             targets = PING_TARGET.split('/')
             for i, target in enumerate(targets):
-                offset = (i)*int(PING_INTERVAL/len(targets))
+                offset = i*int(PING_INTERVAL/len(targets))
                 logging.info(f"LAUNCHING LATENCY CHECK LOOP FOR {target} with offset {offset}")
                 await stack.enter_async_context(TaskEvery(latency_check,
                                                     client, 
@@ -235,29 +272,26 @@ async def main_loop():
                                                     offset=offset))
 
             logging.info("STARTING MAIN WEBSOCKET LOOP")
-            async for payload in router.stats():
-                try:
-                    for key, value in payload.items():
-                        if not isinstance(value, dict):
-                            logging.warning(f"{value} for {key} isn't a dict, would likely cause trouble in processing skipping")
-                            continue
-                        if key == 'system-stats':
-                            datapoint = SystemStats( router=hostname,
-                                                        **value )
-                            await client.write(datapoint)
-                        elif key == 'interfaces':
-                            await client.write(process_interfaces(value, hostname))
-                        elif key == 'export':
-                            await client.write(process_export(value, hostname))
-                        elif key == 'users':
-                            await client.write(process_users(value, hostname))
-                        elif key == 'config-change' and value['commit'] == 'ended':
-                            ip2mac1 = config_extract_map(router.sysconfig)
-                        else:
-                            pass
-                            #print(f"got {key} - ignoring for now")
-                except:
-                    raise
+            async for payload in router.stats(subs=["export", "interfaces", "system-stats", "config-change", "users"]):
+                for key, value in payload.items():
+                    if not isinstance(value, dict):
+                        logging.warning(f"{value} for {key} isn't a dict, would likely cause trouble in processing skipping")
+                        continue
+                    if key == 'system-stats':
+                        datapoint = SystemStats( router=hostname,
+                                                    **value )
+                        await client.write(datapoint)
+                    elif key == 'interfaces':
+                        await client.write(process_interfaces(value, hostname))
+                    elif key == 'export':
+                        await client.write(process_export(value, hostname))
+                    elif key == 'users':
+                        await client.write(process_users(value, hostname))
+                    elif key == 'config-change' and value['commit'] == 'ended':
+                        ip2mac1 = config_extract_map(router.sysconfig)
+                        hostname = ROUTER_TAGNAME or router.sysconfig['system']['host-name']
+                    else:
+                        logging.debug(f"got datapoint {key} but I don't know how to handle it, ignoring")
         except aiohttp.client_exceptions.ServerFingerprintMismatch as e:
             fphash = b2a_hex(e.got).decode()
             print(f'''
@@ -268,9 +302,11 @@ ssl for your router.  If this is the case please update your environment with th
 ROUTER_SSL={fphash}
 ===============   TLS/SSL HASH MISMATCH ===============''')
         
+rh = ROUTER_TAGNAME or "**get hostname from system config**"
 
 print(f'''
 ================================================
+ROUTER_TAGNAME  = {rh}
 ROUTER_USERNAME = {ROUTER_USERNAME}
 ROUTER_PASSWORD = **HIDDEN**
 ROUTER_URL      = {ROUTER_URL}

@@ -355,7 +355,7 @@ class EdgeOS:
             except asyncio.CancelledError as err:
                 return
             except Exception as err:
-                logger.warning(f"ws err {err!r}")
+                logger.debug(f"websocket loop raised {err!r}, ignoring")
                 if not keepalive:
                     return
 
