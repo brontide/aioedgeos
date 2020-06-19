@@ -1,0 +1,8 @@
+version: "2"
+
+services:
+  edge2influx:
+    image: brontide/edge2influx
+    env_file:
+    - settings.env
+ 
