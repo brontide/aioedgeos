@@ -128,6 +128,7 @@ class DPI(NamedTuple):
     client_id: TAG
     client_name: TAG
     dpi: TAG
+    dpi_category: TAG
     rx_bytes: INT
     tx_bytes: INT
 
@@ -182,12 +183,15 @@ def process_export(value,hostname):
     for ip, dpi in value.items():
         oid, name = best_id_name(ip)
         for app, value in dpi.items():
+            app, cat = app.split('|',1)
             rx_bytes = int(value['rx_bytes'])
             tx_bytes = int(value['tx_bytes'])
             rx_rate = int(value['rx_rate'])
             tx_rate = int(value['tx_rate'])
             if rx_rate == 0 and tx_rate == 0: continue
-            yield DPI(router=hostname, client_id=oid, client_name=name, dpi=app,
+            yield DPI(router=hostname, client_id=oid,
+                        client_name=name, dpi=app,
+                        dpi_category=cat,
                         rx_bytes = rx_bytes,
                         tx_bytes = tx_bytes )
     return
@@ -311,7 +315,7 @@ ROUTER_USERNAME = {ROUTER_USERNAME}
 ROUTER_PASSWORD = **HIDDEN**
 ROUTER_URL      = {ROUTER_URL}
 ROUTER_SSL      = {ROUTER_SSL}
- - ssl_check   -> {ssl_check}
+ - ssl_check   -> {ssl_check!r}
 INFLUX_HOST     = {INFLUX_HOST}
 INFLUX_PORT     = {INFLUX_PORT}
 INFLUX_DB       = {INFLUX_DB}
