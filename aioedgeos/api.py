@@ -59,7 +59,7 @@ class TaskEvery:
         try:
             await self.call(*self.args, **self.kwargs)
         except Exception as e:
-            logging.exception("Run of {self.call.__name__} raised exception")
+            logging.exception(f"Run of {self.call.__name__} raised exception")
             raise
 
     async def run_every(self):
@@ -90,8 +90,9 @@ Given an edgeos object test for failed login and relogin every interval
 seconds
 '''
 async def stay_logged_in(edgeos):
-    if not await edgeos.is_logged_in():
-        await edgeos.login()
+    with suppress():
+        if not await edgeos.is_logged_in():
+            await edgeos.login()
 
 '''
 Given a WebSocket send nonstandard ping every interval seconds ( default 30)
