@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 
+
+DEBUG_MODE = os.environ.get('DEBUG_MODE',None)
+
 '''
 If you want to replace the system hostname with something
 else and don't want to change the router config you can
@@ -82,7 +85,12 @@ from aioinflux import *
 from typing import NamedTuple
 
 import logging
-logging.basicConfig(format='%(asctime)s:%(levelname)s:%(name)s:%(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+logger = logging.getLogger()
+if DEBUG_MODE:
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 
 @lineprotocol
 class SystemStats(NamedTuple):
