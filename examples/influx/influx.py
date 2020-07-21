@@ -291,7 +291,9 @@ async def main_loop():
                         continue
                     if key == 'system-stats':
                         datapoint = SystemStats( router=hostname,
-                                                    **value )
+                                                    cpu=value['cpu'],
+                                                    mem=value['mem'],
+                                                    uptime=value['uptime'] )
                         await client.write(datapoint)
                     elif key == 'interfaces':
                         await client.write(process_interfaces(value, hostname))
