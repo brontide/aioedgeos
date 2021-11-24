@@ -72,7 +72,7 @@ Scroll down and under Database add edgeos or the value of INFLUXDB_DB
 
 Hit save and test:)
 
-Next step is to great your data dashboard from the provided sample.
+Next step is to create your data dashboard from the provided sample.
 
 Open EdgeRouter-dashboard.json and copy the json.
 
