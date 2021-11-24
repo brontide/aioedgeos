@@ -88,30 +88,33 @@ Paste the json and press the load button, you should now have a working dashboar
 
 To see your dashboard go to dashboards:)
 
-## Settings/options 
+## edge2influx Settings/options 
 
 If you want to replace the system hostname with something
 else and don't want to change the router config you can
 change it here
-######ROUTER_TAGNAME=
+
+###### ROUTER_TAGNAME=
 
 ##### Credentials to get into the webUI 
-######ROUTER_USERNAME=
-######ROUTER_PASSWORD=
-######ROUTER_URL=
+###### ROUTER_USERNAME=
+
+ROUTER_PASSWORD=
+ROUTER_URL=
 
 TRUE for SSL that will validate or the base64 sha256
 fingerprint for the host, run once and it should error
 out and give you the correct fingerprint for this host
-######ROUTER_SSL=
+
+###### ROUTER_SSL=
 
 ##### InfluxDB settings
-######INFLUX_HOST=
-######INFLUX_DB=edgeos
+INFLUX_HOST=
+INFLUX_DB=edgeos
 optional influx settings
-######INFLUX_PORT=8086
-######INFLUX_USERNAME=
-######INFLUX_PASSWORD=
+INFLUX_PORT=8086
+INFLUX_USERNAME=
+INFLUX_PASSWORD=
 
 
 ##### Latency settings - optional, by default will
@@ -119,8 +122,8 @@ ping 1.1.1.1 every 120 seconds with 3 pings and record the stats.
 
 PING_TARGET can take multiple hosts like 1.1.1.1/8.8.8.8  and will interleve checks
 
-######PING_TARGET=1.1.1.1
-######PING_COUNT=3
-######PING_SIZE=50
-######PING_INTERVAL=120
+PING_TARGET=1.1.1.1
+PING_COUNT=3
+PING_SIZE=50
+PING_INTERVAL=120
 
