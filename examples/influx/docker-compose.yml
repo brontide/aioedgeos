@@ -1,8 +1,39 @@
-version: "2"
-
+version: '2.1'
 services:
-  edge2influx:
+  influxdb:
+    image: influxdb:1.8
+    restart: always
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=edgeos
+      - INFLUXDB_ADMIN_USER=some_user
+      - INFLUXDB_ADMIN_PASSWORD=your_password_hehe
+      - INFLUXDB_HTTP_AUTH_ENABLED=false
+    volumes:
+      - /share/DATA1/influxdb-volume:/var/lib/influxdb
+  collector:
     image: brontide/edge2influx
-    env_file:
-    - settings.env
- 
+    environment:
+      INFLUX_DB: edgeos
+      INFLUX_HOST: 192.168.1.51
+      INFLUX_PORT: 8086
+      ROUTER_SSL: set base64 hash of router certificate
+      ROUTER_URL: https://192.168.1.1
+      ROUTER_USERNAME: xxxxxx
+      ROUTER_PASSWORD: xxxxxx
+    depends_on:
+      - "influxdb"
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - '3000:3000'
+    volumes:
+      - /share/DATA1/grafana-storage:/var/lib/grafana
+      - /share/DATA1/grafana-provisioning/:/etc/grafana/provisioning
+    depends_on:
+      - influxdb
+      - collector
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=password
