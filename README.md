@@ -12,9 +12,9 @@ This tool uses the ER's native webUI data endpoints including the  streaming web
 - Deep Packet Inspection, anything that you can track in the webUI will be collected and indexed over time for easy perusal.
 - Latency statistics from the host(s) of your choice ( uses the built-in ping toolbox ).
 
-![dash1](/../dash1.png)
+![dash1](examples/influx/dash1.png)
 
-![dash2](/../dash2.png)
+![dash2](examples/influx/dash2.png)
 
 ## Installation
 
@@ -43,7 +43,7 @@ http://DOCKERHOST:3000/
 
 You should see something like this
 
-![grafana #1](/../grafana/grafana #1.png)
+![grafana #1](examples/influx/grafana/grafana1.png)
 
 Login with the env variables set in the docker-compose file(use your own if you changed them...)
 
@@ -54,21 +54,21 @@ Login with the env variables set in the docker-compose file(use your own if you 
 
 Next use the menu to add a data source, this will be our influx db.
 
-![grafana #2](/../grafana/grafana #2.png)
+![grafana #2](examples/influx/grafana/grafana2.png)
 
 Under data sources search for Influx
 
-![grafana #3](/../grafana/grafana #3.png)
+![grafana #3](examples/influx/grafana/grafana3.png)
 
 Use http://DOCKERHOST:8086/ as HTTP value the port 8086 can be changed using INFLUX_PORT.
 
-![grafana #4](/../grafana/grafana #4.png)
+![grafana #4](examples/influx/grafana/grafana4.png)
 
 Leave all Auth options disabled(not recommended for production usage but its fine(uhhh easy ;-p) for home experiments
 
 Scroll down and under Database add edgeos or the value of INFLUXDB_DB
 
-![grafana #5](/../grafana/grafana #5.png)
+![grafana #5](examples/influx/grafana/grafana5.png)
 
 Hit save and test:)
 
@@ -78,40 +78,43 @@ Open EdgeRouter-dashboard.json and copy the json.
 
 In grafana navigate to create -> import
 
-![grafana #6](/../grafana/grafana #6.png)
+![grafana #6](examples/influx/grafana/grafana6.png)
 
 
 
 Paste the json and press the load button, you should now have a working dashboard.
 
-![grafana #7](/../grafana/grafana #7.png)
+![grafana #7](examples/influx/grafana/grafana7.png)
 
 To see your dashboard go to dashboards:)
 
-## Settings/options 
+## edge2influx Settings/options 
 
 If you want to replace the system hostname with something
 else and don't want to change the router config you can
 change it here
-######ROUTER_TAGNAME=
+
+###### ROUTER_TAGNAME=
 
 ##### Credentials to get into the webUI 
-######ROUTER_USERNAME=
-######ROUTER_PASSWORD=
-######ROUTER_URL=
+###### ROUTER_USERNAME=
+
+ROUTER_PASSWORD=
+ROUTER_URL=
 
 TRUE for SSL that will validate or the base64 sha256
 fingerprint for the host, run once and it should error
 out and give you the correct fingerprint for this host
-######ROUTER_SSL=
+
+###### ROUTER_SSL=
 
 ##### InfluxDB settings
-######INFLUX_HOST=
-######INFLUX_DB=edgeos
+INFLUX_HOST=
+INFLUX_DB=edgeos
 optional influx settings
-######INFLUX_PORT=8086
-######INFLUX_USERNAME=
-######INFLUX_PASSWORD=
+INFLUX_PORT=8086
+INFLUX_USERNAME=
+INFLUX_PASSWORD=
 
 
 ##### Latency settings - optional, by default will
@@ -119,8 +122,8 @@ ping 1.1.1.1 every 120 seconds with 3 pings and record the stats.
 
 PING_TARGET can take multiple hosts like 1.1.1.1/8.8.8.8  and will interleve checks
 
-######PING_TARGET=1.1.1.1
-######PING_COUNT=3
-######PING_SIZE=50
-######PING_INTERVAL=120
+PING_TARGET=1.1.1.1
+PING_COUNT=3
+PING_SIZE=50
+PING_INTERVAL=120
 
