@@ -299,6 +299,20 @@ class EdgeOS:
                     await self.config()
             yield payload
 
+    async def reboot(self):
+        async with self.session.post(f"{self.url}/api/edge/operation/reboot.json",
+                                    ssl=self.ssl,
+                                    headers=self.headers,
+                                    cookies=self.cookies) as resp:
+            if resp.status != 200:
+                logger.warning(f"Reboot operation failed with code {resp.status}")
+                return None
+
+            temp = await resp.json()
+            output = temp.get('success', False)
+            logger.debug(f"Reboot operation success: {output}")
+            return output
+
     async def _ws(self, init, keepalive=True, timeout=30):
         pinger = None
         foo = { 'UNSUBSCRIBE': [] }
