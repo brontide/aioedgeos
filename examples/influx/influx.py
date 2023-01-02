@@ -71,9 +71,9 @@ else:
 
 influx_auth = {}
 if INFLUX_TOKEN:
-    influx_auth.update((
+    influx_auth.update({
         'token': INFLUX_TOKEN
-    ))
+    })
 elif INFLUX_USERNAME or INFLUX_PASSWORD:
     influx_auth.update({
         'username': INFLUX_USERNAME,
