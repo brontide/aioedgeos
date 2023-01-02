@@ -37,6 +37,7 @@ INFLUX_DB       = os.environ['INFLUX_DB']
 INFLUX_PORT     = os.environ.get('INFLUX_PORT', 8086)
 INFLUX_USERNAME = os.environ.get('INFLUX_USERNAME',None)
 INFLUX_PASSWORD = os.environ.get('INFLUX_PASSWORD',None)
+INFLUX_TOKEN    = os.environ.get('INFLUX_TOKEN',None)
 
 ''' 
 Latency settings - optional, by default will 
@@ -69,7 +70,11 @@ else:
     raise Exception(f"ROUTER_SSL {ROUTER_SSL} is invalid")
 
 influx_auth = {}
-if INFLUX_USERNAME or INFLUX_PASSWORD:
+if INFLUX_TOKEN:
+    influx_auth.update((
+        'token': INFLUX_TOKEN
+    ))
+elif INFLUX_USERNAME or INFLUX_PASSWORD:
     influx_auth.update({
         'username': INFLUX_USERNAME,
         'password': INFLUX_PASSWORD,
